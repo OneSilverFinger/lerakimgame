@@ -365,7 +365,6 @@ function App() {
           >
             {form.mode === 'login' ? 'Войти' : 'Создать аккаунт'}
           </button>
-          <div className="muted">Демо: demo / password</div>
         </div>
       </div>
     );
