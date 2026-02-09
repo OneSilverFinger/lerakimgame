@@ -1,0 +1,15 @@
+backend/vendor/
+backend/storage/*
+!backend/storage/.gitignore
+!backend/storage/app/
+backend/storage/app/*
+!backend/storage/app/dicts_ru.txt
+backend/.env
+frontend/node_modules/
+frontend/dist/
+*.log
+*.sqlite
+*.lock
+/.idea/
+/.vscode/
+*.DS_Store
