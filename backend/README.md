@@ -1,59 +1,61 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+## Word Game (Laravel API + React/Vite UI)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Русская игра на составление слов за 100 секунд: регистрация по логину, подсчёт самоцветов, покупки замен букв, лидерборд.
 
-## About Laravel
+### Архитектура
+- backend: Laravel 12 (PHP 8.4), Sanctum, MySQL; словарь слов в `storage/app/dicts_ru.txt`.
+- frontend: React + Vite + dnd-kit; mobile-first UI.
+- docker-compose (опционально) для dev/prod.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+### Быстрый старт (без Docker)
+```bash
+cp backend/.env.example backend/.env
+# проставьте APP_URL, DB_*, FRONTEND_URL, SANCTUM_STATEFUL_DOMAINS
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+cd backend
+composer install --no-dev
+php artisan key:generate
+php artisan migrate --force --seed
+php artisan storage:link   # не обязательно
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+cd ../frontend
+npm install
+npm run build
+cp -r dist/* ../backend/public/
+```
+Настройте веб-сервер на корень `backend/public`.
 
-## Learning Laravel
+### Быстрый старт (Docker)
+```bash
+docker compose up -d
+```
+API: http://localhost:8080/api  
+Frontend (dev): http://localhost:5173
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+### API (ключевые)
+- POST `/api/register` {username,password}
+- POST `/api/login`
+- POST `/api/game/start`
+- POST `/api/game/swap`
+- POST `/api/game/check-word` {session_id, word}
+- POST `/api/game/submit`
+- POST `/api/shop/buy-swap` {pack:1|7|20}
+- GET  `/api/leaderboard`
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Игровая логика
+- 100 секунд, 6 букв, минимум 2 буквы в слове.
+- Словарь: `storage/app/dicts_ru.txt` (включён в репо).
+- Бесплатные замены: раз в день до 3, хранится в БД.
+- Стоимость замены за покупку: 1 за 50💎, 7 за 250💎, 20 за 500💎.
+- Гемы: 1 гем за букву в валидном слове.
 
-## Laravel Sponsors
+### Скрипты
+- backend: `composer test`, `php artisan test`
+- frontend: `npm run dev`, `npm run build`
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Деплой
+- Без Docker: PHP-FPM + Nginx, корень `backend/public`.
+- С Docker: использовать `docker-compose.yml` или свой Nginx как reverse-proxy к `nginx` сервиса.
 
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Демо-аккаунт
+`demo / password` (сидером).
