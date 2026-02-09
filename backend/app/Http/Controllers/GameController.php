@@ -12,6 +12,7 @@ class GameController extends Controller
 {
     private const SWAP_COST = 200;
     private const ROUND_SECONDS = 100;
+    private array $presetWordSet;
 
     /**
      * Подборки букв, из которых гарантированно собираются несколько слов.
@@ -44,6 +45,14 @@ class GameController extends Controller
 
     public function __construct(private WordValidator $validator)
     {
+        // Быстрый набор слов из подсказок пресетов, чтобы они всегда считались валидными,
+        // даже если внешний словарь не подгрузился.
+        $this->presetWordSet = [];
+        foreach ($this->presets as $preset) {
+            foreach ($preset['sample_words'] as $w) {
+                $this->presetWordSet[mb_strtoupper($w)] = true;
+            }
+        }
     }
 
     public function start(Request $request)
@@ -260,6 +269,9 @@ class GameController extends Controller
 
     private function isInDictionary(string $word): bool
     {
+        if (isset($this->presetWordSet[$word])) {
+            return true;
+        }
         if ($this->validator->exists($word)) {
             return true;
         }

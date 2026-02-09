@@ -1,2 +1,5 @@
 *
 !.gitignore
+!app/
+app/*
+!app/dicts_ru.txt
