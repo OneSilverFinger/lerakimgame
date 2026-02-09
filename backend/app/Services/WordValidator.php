@@ -54,9 +54,12 @@ class WordValidator
     private function checkExternalDictionary(string $upper): bool
     {
         try {
+            $slug = rawurlencode(mb_strtolower($upper)); // API ожидает нижний регистр
+
             $response = Http::timeout(5)
                 ->acceptJson()
-                ->get("https://api.dictionaryapi.dev/api/v2/entries/ru/{$upper}");
+                ->withHeaders(['User-Agent' => 'WordRush/1.0 (+https://lerakimgame.ru)'])
+                ->get("https://api.dictionaryapi.dev/api/v2/entries/ru/{$slug}");
 
             if ($response->successful()) {
                 $json = $response->json();
