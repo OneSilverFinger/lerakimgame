@@ -1,9 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import axios from 'axios';
-import { DndContext, PointerSensor, closestCenter, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import clsx from 'clsx';
 import './style.css';
 
@@ -115,42 +112,6 @@ function LetterChip({ letter, active, onClick }: { letter: string; active?: bool
   );
 }
 
-function SortableLetter({ letter }: { letter: LetterTile }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: letter.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <LetterChip letter={letter.value} />
-    </div>
-  );
-}
-
-function DroppableZone({
-  id,
-  title,
-  children,
-  highlight,
-}: {
-  id: string;
-  title: string;
-  children: React.ReactNode;
-  highlight?: boolean;
-}) {
-  const { setNodeRef, isOver } = useDroppable({
-    id,
-  });
-
-  return (
-    <div ref={setNodeRef} className={clsx('zone', highlight && 'word-zone', isOver && 'zone-over')}>
-      <div className="zone-title">{title}</div>
-      {children}
-    </div>
-  );
-}
-
 function App() {
   const { user, authLoading, login, register, logout, setUser } = useAuth();
 
@@ -166,8 +127,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [hints, setHints] = useState<string[]>([]);
   const [shopLoading, setShopLoading] = useState(false);
-
-  const sensors = useSensors(useSensor(PointerSensor));
 
   // sync local counters when профиль загрузился
   useEffect(() => {
@@ -306,64 +265,21 @@ function App() {
     setLetters((prev) => prev.map((l) => ({ ...l, lane: 'rack' })));
   };
 
-  const onDragEnd = (event: any) => {
-    const { active, over } = event;
-    if (!over) return;
-
-    const activeLetter = letters.find((l) => l.id === active.id);
-    if (!activeLetter) return;
-
-    const rackIds = letters.filter((l) => l.lane === 'rack').map((l) => l.id);
-    const wordIds = letters.filter((l) => l.lane === 'word').map((l) => l.id);
-
-    const moveToLane = (lane: 'rack' | 'word') =>
-      setLetters((prev) =>
-        prev.map((l) => (l.id === active.id ? { ...l, lane } : l))
-      );
-
-    if (over.id === 'rack') {
-      moveToLane('rack');
-      return;
-    }
-    if (over.id === 'word') {
-      moveToLane('word');
-      return;
-    }
-
-    // dropped on another letter
-    const overLetter = letters.find((l) => l.id === over.id);
-    if (!overLetter) return;
-    const targetLane = overLetter.lane;
-
-    if (activeLetter.lane !== targetLane) {
-      moveToLane(targetLane);
-    }
-
-    const laneIds = targetLane === 'rack' ? rackIds : wordIds;
-    const oldIndex = laneIds.indexOf(active.id);
-    const newIndex = laneIds.indexOf(over.id);
-    if (oldIndex >= 0 && newIndex >= 0) {
-      const reorderedIds = arrayMove(laneIds, oldIndex, newIndex);
-      setLetters((prev) => {
-        const laneItems = prev.filter((l) => l.lane === targetLane);
-        const otherItems = prev.filter((l) => l.lane !== targetLane);
-        const reordered = reorderedIds
-          .map((id) => laneItems.find((l) => l.id === id))
-          .filter(Boolean) as LetterTile[];
-        return targetLane === 'rack' ? [...reordered, ...otherItems] : [...otherItems, ...reordered];
-      });
-    }
-  };
-
   const clickLetter = (letterId: string) => {
     setLetters((prev) => {
       const idx = prev.findIndex((l) => l.id === letterId && l.lane === 'rack');
       if (idx === -1) return prev;
       const moved: LetterTile = { ...prev[idx], lane: 'word' };
-      const next = [...prev];
-      next[idx] = moved;
-      return next;
+      const rack = prev.filter((l) => l.lane === 'rack').map((l) => (l.id === letterId ? moved : l));
+      const word = prev.filter((l) => l.lane === 'word');
+      return [...rack, ...word];
     });
+  };
+
+  const clickWordLetter = (letterId: string) => {
+    setLetters((prev) =>
+      prev.map((l) => (l.id === letterId && l.lane === 'word' ? { ...l, lane: 'rack' } : l))
+    );
   };
 
   const timePercent = useMemo(() => Math.max(0, Math.min(100, (timer / 100) * 100)), [timer]);
@@ -513,31 +429,29 @@ function App() {
                 </div>
               </div>
 
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-                <div className="zones">
-                  <DroppableZone id="rack" title="Буквы">
-                <SortableContext items={rackLetters.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
+              <div className="zones">
+                <div className="zone">
+                  <div className="zone-title">Буквы</div>
                   <div className="letters-row">
                     {rackLetters.map((letter) => (
                       <div key={letter.id} onClick={() => clickLetter(letter.id)}>
-                        <SortableLetter letter={letter} />
+                        <LetterChip letter={letter.value} />
                       </div>
                     ))}
                   </div>
-                </SortableContext>
-              </DroppableZone>
+                </div>
 
-              <DroppableZone id="word" title="Перетащите сюда слово" highlight>
-                <SortableContext items={wordLetters.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
+                <div className="zone word-zone">
+                  <div className="zone-title">Ваше слово (нажмите, чтобы убрать)</div>
                   <div className="letters-row">
                     {wordLetters.map((letter) => (
-                      <SortableLetter key={letter.id} letter={letter} />
+                      <div key={letter.id} onClick={() => clickWordLetter(letter.id)}>
+                        <LetterChip letter={letter.value} />
+                      </div>
                     ))}
                   </div>
-                </SortableContext>
-              </DroppableZone>
                 </div>
-              </DndContext>
+              </div>
 
               <div className="builder">
                 <div className="word-preview">
