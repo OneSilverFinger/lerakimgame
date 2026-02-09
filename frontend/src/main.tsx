@@ -4,7 +4,9 @@ import axios from 'axios';
 import clsx from 'clsx';
 import './style.css';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api';
+const API_URL =
+  import.meta.env.VITE_API_URL ??
+  (typeof window !== 'undefined' ? `${window.location.origin}/api` : 'http://localhost:8080/api');
 
 const api = axios.create({
   baseURL: API_URL,
