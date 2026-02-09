@@ -45,7 +45,7 @@ type SubmitResponse = {
   free_swaps_left: number;
 };
 
-type LetterTile = { id: string; value: string; lane: 'rack' | 'word' };
+type LetterTile = { id: string; value: string };
 
 type SwapResponse = {
   letters: string[];
@@ -116,7 +116,8 @@ function App() {
   const { user, authLoading, login, register, logout, setUser } = useAuth();
 
   const [form, setForm] = useState({ username: 'demo', password: 'password', mode: 'login' as 'login' | 'register' });
-  const [letters, setLetters] = useState<LetterTile[]>([]);
+  const [rack, setRack] = useState<LetterTile[]>([]);
+  const [word, setWord] = useState<LetterTile[]>([]);
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [words, setWords] = useState<string[]>([]);
   const [timer, setTimer] = useState(100);
@@ -170,7 +171,9 @@ function App() {
     try {
       const res = await api.post<StartResponse>('/game/start');
       setSessionId(res.data.session_id);
-      setLetters(res.data.letters.map((l, idx) => ({ id: `${Date.now()}-${idx}`, value: l, lane: 'rack' })));
+      const newRack = res.data.letters.map((l, idx) => ({ id: `${Date.now()}-${idx}`, value: l }));
+      setRack(newRack);
+      setWord([]);
       setFreeSwaps(res.data.free_swaps_left);
       setWords([]);
       setTimer(res.data.round_seconds);
@@ -189,7 +192,9 @@ function App() {
       const res = await api.post<SwapResponse>('/game/swap', {
         session_id: sessionId,
       });
-      setLetters(res.data.letters.map((l, idx) => ({ id: `${Date.now()}-${idx}`, value: l, lane: 'rack' })));
+      const newRack = res.data.letters.map((l, idx) => ({ id: `${Date.now()}-${idx}`, value: l }));
+      setRack(newRack);
+      setWord([]);
       setFreeSwaps(res.data.free_swaps_left);
       if (user) setUser({ ...user, gems: res.data.gems });
       setHints(res.data.hint_words ?? []);
@@ -233,19 +238,14 @@ function App() {
   };
 
   const backspace = () => {
-    const wordLetters = letters.filter((l) => l.lane === 'word');
-    if (wordLetters.length === 0) return;
-    const last = wordLetters[wordLetters.length - 1];
-    setLetters((prev) =>
-      prev.map((l) => (l.id === last.id ? { ...l, lane: 'rack' } : l))
-    );
+    if (word.length === 0) return;
+    const last = word[word.length - 1];
+    setWord((prev) => prev.slice(0, -1));
+    setRack((prev) => [...prev, last]);
   };
 
   const saveWord = async () => {
-    const current = letters
-      .filter((l) => l.lane === 'word')
-      .map((l) => l.value)
-      .join('');
+    const current = word.map((l) => l.value).join('');
     if (current.length < 2 || !sessionId) return;
     try {
       setLoading(true);
@@ -253,7 +253,8 @@ function App() {
       setWords((prev) => Array.from(new Set([...prev, current])));
       setBanner(`Добавлено: ${current}`);
       // send letters back to rack
-      setLetters((prev) => prev.map((l) => ({ ...l, lane: 'rack' })));
+      setRack((prev) => [...prev, ...word]);
+      setWord([]);
     } catch (e: any) {
       setBanner(e?.response?.data?.message ?? 'Слово не найдено в словаре');
     } finally {
@@ -262,30 +263,34 @@ function App() {
   };
 
   const resetWord = () => {
-    setLetters((prev) => prev.map((l) => ({ ...l, lane: 'rack' })));
+    setRack((prev) => [...prev, ...word]);
+    setWord([]);
   };
 
   const clickLetter = (letterId: string) => {
-    setLetters((prev) => {
-      const idx = prev.findIndex((l) => l.id === letterId && l.lane === 'rack');
-      if (idx === -1) return prev;
-      const moved: LetterTile = { ...prev[idx], lane: 'word' };
-      const rack = prev.filter((l) => l.lane === 'rack').map((l) => (l.id === letterId ? moved : l));
-      const word = prev.filter((l) => l.lane === 'word');
-      return [...rack, ...word];
+    setRack((prevRack) => {
+      const idx = prevRack.findIndex((l) => l.id === letterId);
+      if (idx === -1) return prevRack;
+      const picked = prevRack[idx];
+      setWord((prevWord) => [...prevWord, picked]);
+      return [...prevRack.slice(0, idx), ...prevRack.slice(idx + 1)];
     });
   };
 
   const clickWordLetter = (letterId: string) => {
-    setLetters((prev) =>
-      prev.map((l) => (l.id === letterId && l.lane === 'word' ? { ...l, lane: 'rack' } : l))
-    );
+    setWord((prevWord) => {
+      const idx = prevWord.findIndex((l) => l.id === letterId);
+      if (idx === -1) return prevWord;
+      const picked = prevWord[idx];
+      setRack((prevRack) => [...prevRack, picked]);
+      return [...prevWord.slice(0, idx), ...prevWord.slice(idx + 1)];
+    });
   };
 
   const timePercent = useMemo(() => Math.max(0, Math.min(100, (timer / 100) * 100)), [timer]);
 
-  const rackLetters = letters.filter((l) => l.lane === 'rack');
-  const wordLetters = letters.filter((l) => l.lane === 'word');
+  const rackLetters = rack;
+  const wordLetters = word;
 
   if (authLoading) {
     return <div className="screen">Загрузка...</div>;
@@ -442,7 +447,7 @@ function App() {
                 </div>
 
                 <div className="zone word-zone">
-                  <div className="zone-title">Ваше слово (нажмите, чтобы убрать)</div>
+                  <div className="zone-title">Ваше слово</div>
                   <div className="letters-row">
                     {wordLetters.map((letter) => (
                       <div key={letter.id} onClick={() => clickWordLetter(letter.id)}>
@@ -455,7 +460,7 @@ function App() {
 
               <div className="builder">
                 <div className="word-preview">
-                  {wordLetters.map((l) => l.value).join('') || 'Тяните буквы вниз, чтобы собрать слово'}
+                  {wordLetters.map((l) => l.value).join('') || 'Нажимайте буквы, чтобы собрать слово'}
                 </div>
               <div className="builder-actions">
                   <button className="primary" onClick={saveWord} disabled={wordLetters.length < 2 || loading}>
