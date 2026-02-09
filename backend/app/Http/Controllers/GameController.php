@@ -196,11 +196,6 @@ class GameController extends Controller
         ]);
     }
 
-    private function preset(): array
-    {
-        return $this->presets[array_rand($this->presets)];
-    }
-
     private function lettersToArray(string $letters): array
     {
         return preg_split('//u', $letters, -1, PREG_SPLIT_NO_EMPTY);
