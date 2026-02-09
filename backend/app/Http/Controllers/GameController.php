@@ -64,6 +64,8 @@ class GameController extends Controller
 
         $preset = $this->preset();
         $letters = $preset['letters'];
+        $lettersShuffled = $this->lettersToArray($letters);
+        shuffle($lettersShuffled);
 
         $session = GameSession::create([
             'user_id' => $user->id,
@@ -73,7 +75,7 @@ class GameController extends Controller
 
         return response()->json([
             'session_id' => $session->id,
-            'letters' => $this->lettersToArray($letters),
+            'letters' => $lettersShuffled,
             'free_swaps_left' => $user->free_swaps_left,
             'gems' => $user->gems,
             'round_seconds' => self::ROUND_SECONDS,
