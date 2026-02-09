@@ -266,6 +266,12 @@ class GameController extends Controller
         if ($this->validator->exists($word)) {
             return true;
         }
+        // слова из пресетов считаем валидными
+        foreach ($this->presets as $preset) {
+            if (in_array($word, $preset['sample_words'], true)) {
+                return true;
+            }
+        }
         return in_array($word, $this->dictionary, true);
     }
 }
