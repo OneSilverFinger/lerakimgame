@@ -121,7 +121,7 @@ function LetterChip({ letter, active, onClick }: { letter: string; active?: bool
 function App() {
   const { user, authLoading, login, register, logout, setUser } = useAuth();
 
-  const [form, setForm] = useState({ username: 'demo', password: 'password', mode: 'login' as 'login' | 'register' });
+  const [form, setForm] = useState({ username: '', password: '', mode: 'login' as 'login' | 'register' });
   const [rack, setRack] = useState<LetterTile[]>([]);
   const [word, setWord] = useState<LetterTile[]>([]);
   const [sessionId, setSessionId] = useState<number | null>(null);
