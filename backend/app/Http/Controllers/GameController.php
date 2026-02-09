@@ -13,10 +13,21 @@ class GameController extends Controller
     private const SWAP_COST = 200;
     private const ROUND_SECONDS = 100;
 
-    private array $vowels = ['А','О','И','Е','Ё','Э','Ы','У','Я','Ю'];
-    private array $consonants = [
-        'Б','В','Г','Д','Ж','З','Й','К','Л','М','Н','П','Р','С','Т','Ф','Х','Ц','Ч','Ш','Щ',
-        'Ь','Ъ',
+    /**
+     * Подборки букв, из которых гарантированно собираются несколько слов.
+     * Держим достаточный пул, чтобы замены не повторялись сразу.
+     */
+    private array $presets = [
+        ['letters' => 'СТЕКЛО', 'sample_words' => ['СТОЛ', 'ЛЕС', 'СЕТ', 'ЛОТ', 'КОЛ', 'ТЕСЛО']],
+        ['letters' => 'РАДИУС', 'sample_words' => ['РАД', 'СУД', 'РИС', 'ДУРА', 'УДАР', 'РАДИУС']],
+        ['letters' => 'ПАРТОК', 'sample_words' => ['ПАР', 'ТОП', 'РОТ', 'ТОР', 'ПОТ', 'ПОРТ']],
+        ['letters' => 'ЛАМПАД', 'sample_words' => ['ЛАД', 'ПАЛ', 'ПЛАВ', 'ЛАМПА', 'ПЛАВДА']],
+        ['letters' => 'ГРУШАН', 'sample_words' => ['ГРА', 'ГРУША', 'ШАР', 'РУГА', 'ГАРН']],
+        ['letters' => 'ПЕСЧАН', 'sample_words' => ['ПЕС', 'ПАН', 'САН', 'ЧАН', 'ПЕСЧАН']],
+        ['letters' => 'МОДЕЛЬ', 'sample_words' => ['МОДА', 'ДЕЛО', 'ЛЕД', 'МЕД', 'МОДЕЛЬ']],
+        ['letters' => 'ПРИМОР', 'sample_words' => ['ПРИМ', 'РИМ', 'МОР', 'ПИР', 'ПРИМОР']],
+        ['letters' => 'ГОЛУБЯ', 'sample_words' => ['ГОЛ', 'ЛУГ', 'БЫЛ', 'ГОЛУБЬ', 'БЛЮДО']],
+        ['letters' => 'КЛЕВЕР', 'sample_words' => ['КЛЕВ', 'ВЕК', 'РЕВ', 'КЛЕВЕР']],
     ];
 
     /**
@@ -41,7 +52,8 @@ class GameController extends Controller
         $user = $request->user();
         $this->resetDailyFreeSwaps($user);
 
-        $letters = $this->generateLetters();
+        $preset = $this->preset();
+        $letters = $preset['letters'];
 
         $session = GameSession::create([
             'user_id' => $user->id,
@@ -54,7 +66,7 @@ class GameController extends Controller
             'free_swaps_left' => $user->free_swaps_left,
             'gems' => $user->gems,
             'round_seconds' => self::ROUND_SECONDS,
-            'hint_words' => [],
+            'hint_words' => $preset['sample_words'],
         ]);
     }
 
@@ -86,14 +98,8 @@ class GameController extends Controller
         $user->free_swaps_left -= 1;
         $user->save();
 
-        $newLetters = $this->generateLetters();
-        // стараемся избежать той же раздачи
-        $tries = 0;
-        while ($newLetters === $session->letters && $tries < 5) {
-            $newLetters = $this->generateLetters();
-            $tries++;
-        }
-        $session->letters = $newLetters;
+        $preset = $this->preset(exclude: $session->letters);
+        $session->letters = $preset['letters'];
         $session->swaps_used += 1;
         $session->save();
 
@@ -101,7 +107,7 @@ class GameController extends Controller
             'letters' => $this->lettersToArray($session->letters),
             'free_swaps_left' => $user->free_swaps_left,
             'gems' => $user->gems,
-            'hint_words' => [],
+            'hint_words' => $preset['sample_words'],
         ]);
     }
 
@@ -207,7 +213,7 @@ class GameController extends Controller
 
         foreach (array_unique($words) as $word) {
             $word = mb_strtoupper(trim($word));
-            if (mb_strlen($word) < 2) {
+            if (mb_strlen($word) < 3) {
                 continue;
             }
             if ($this->isInDictionary($word) && $this->canBuildFromLetters($lettersBag, $word)) {
@@ -265,21 +271,12 @@ class GameController extends Controller
         return in_array($word, $this->dictionary, true);
     }
 
-    private function generateLetters(int $length = 6): string
+    private function preset(?string $exclude = null): array
     {
-        // гарантируем минимум 2 гласные
-        $letters = [];
-        shuffle($this->vowels);
-        shuffle($this->consonants);
-        $letters[] = $this->vowels[array_rand($this->vowels)];
-        $letters[] = $this->vowels[array_rand($this->vowels)];
-
-        $pool = array_merge($this->vowels, $this->consonants, $this->consonants); // чуть больше согласных
-        for ($i = 2; $i < $length; $i++) {
-            $letters[] = $pool[array_rand($pool)];
+        $pool = $this->presets;
+        if ($exclude) {
+            $pool = array_values(array_filter($pool, fn($p) => $p['letters'] !== $exclude));
         }
-
-        shuffle($letters);
-        return implode('', $letters);
+        return $pool[array_rand($pool)];
     }
 }
