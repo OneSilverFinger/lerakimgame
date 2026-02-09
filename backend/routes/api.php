@@ -16,6 +16,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/game/swap', [GameController::class, 'swap']);
     Route::post('/game/submit', [GameController::class, 'submit']);
     Route::post('/game/check-word', [GameController::class, 'checkWord']);
+    Route::post('/game/reveal-hints', [GameController::class, 'revealHints']);
 
     Route::post('/shop/buy-swap', [ShopController::class, 'buySwap']);
 

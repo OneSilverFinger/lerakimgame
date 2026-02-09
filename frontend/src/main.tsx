@@ -59,6 +59,12 @@ type ShopResponse = {
   free_swaps_left: number;
 };
 
+type RevealHintsResponse = {
+  hint_words: string[];
+  gems: number;
+  free_swaps_left: number;
+};
+
 function useAuth() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
   const [user, setUser] = useState<User | null>(null);
@@ -128,6 +134,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [hints, setHints] = useState<string[]>([]);
   const [shopLoading, setShopLoading] = useState(false);
+  const [hintLoading, setHintLoading] = useState(false);
 
   // sync local counters when профиль загрузился
   useEffect(() => {
@@ -242,6 +249,21 @@ function App() {
     const last = word[word.length - 1];
     setWord((prev) => prev.slice(0, -1));
     setRack((prev) => [...prev, last]);
+  };
+
+  const buyHints = async () => {
+    if (!sessionId || !user) return;
+    setHintLoading(true);
+    try {
+      const res = await api.post<RevealHintsResponse>('/game/reveal-hints', { session_id: sessionId });
+      setHints(res.data.hint_words ?? []);
+      setUser({ ...user, gems: res.data.gems });
+      setBanner('Подсказки открыты');
+    } catch (e: any) {
+      setBanner(e?.response?.data?.message ?? 'Не удалось открыть подсказки');
+    } finally {
+      setHintLoading(false);
+    }
   };
 
   const saveWord = async () => {
@@ -485,10 +507,18 @@ function App() {
               </div>
 
               {banner && <div className="banner">{banner}</div>}
-              {hints.length > 0 && (
+              {hints.length > 0 ? (
                 <div className="hint">
-                  Подсказки (можно собрать): {hints.slice(0, 5).join(', ')}
+                  Подсказки: {hints.slice(0, 5).join(', ')}
                 </div>
+              ) : (
+                <button
+                  className="ghost"
+                  onClick={buyHints}
+                  disabled={hintLoading || loading || !user || (user?.gems ?? 0) < 100}
+                >
+                  Показать подсказки — 100💎
+                </button>
               )}
             </section>
 

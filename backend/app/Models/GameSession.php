@@ -16,6 +16,7 @@ class GameSession extends Model
         'score',
         'gems_earned',
         'swaps_used',
+        'hints_revealed',
         'duration_seconds',
         'completed_at',
     ];
@@ -23,6 +24,7 @@ class GameSession extends Model
     protected $casts = [
         'words' => 'array',
         'completed_at' => 'datetime',
+        'hints_revealed' => 'boolean',
     ];
 
     public function user()

@@ -11,6 +11,7 @@ use Illuminate\Validation\ValidationException;
 class GameController extends Controller
 {
     private const SWAP_COST = 200;
+    private const HINT_COST = 100;
     private const ROUND_SECONDS = 100;
     private array $presetWordSet;
 
@@ -67,6 +68,7 @@ class GameController extends Controller
         $session = GameSession::create([
             'user_id' => $user->id,
             'letters' => $letters,
+            'hints_revealed' => false,
         ]);
 
         return response()->json([
@@ -75,7 +77,7 @@ class GameController extends Controller
             'free_swaps_left' => $user->free_swaps_left,
             'gems' => $user->gems,
             'round_seconds' => self::ROUND_SECONDS,
-            'hint_words' => $preset['sample_words'],
+            'hint_words' => [],
         ]);
     }
 
@@ -116,7 +118,46 @@ class GameController extends Controller
             'letters' => $this->lettersToArray($session->letters),
             'free_swaps_left' => $user->free_swaps_left,
             'gems' => $user->gems,
+            'hint_words' => $session->hints_revealed ? $preset['sample_words'] : [],
+        ]);
+    }
+
+    public function revealHints(Request $request)
+    {
+        $data = $request->validate([
+            'session_id' => ['required', 'integer', 'exists:game_sessions,id'],
+        ]);
+
+        /** @var User $user */
+        $user = $request->user();
+        $session = GameSession::where('id', $data['session_id'])
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        if ($session->completed_at) {
+            throw ValidationException::withMessages([
+                'session_id' => ['Сессия уже завершена'],
+            ]);
+        }
+
+        if (!$session->hints_revealed) {
+            if ($user->gems < self::HINT_COST) {
+                throw ValidationException::withMessages([
+                    'gems' => ['Недостаточно самоцветов (нужно 100)'],
+                ]);
+            }
+            $user->gems -= self::HINT_COST;
+            $user->save();
+            $session->hints_revealed = true;
+            $session->save();
+        }
+
+        $preset = $this->presetForLetters($session->letters);
+
+        return response()->json([
             'hint_words' => $preset['sample_words'],
+            'gems' => $user->gems,
+            'free_swaps_left' => $user->free_swaps_left,
         ]);
     }
 
@@ -285,5 +326,15 @@ class GameController extends Controller
             $pool = array_values(array_filter($pool, fn($p) => $p['letters'] !== $exclude));
         }
         return $pool[array_rand($pool)];
+    }
+
+    private function presetForLetters(string $letters): array
+    {
+        foreach ($this->presets as $preset) {
+            if ($preset['letters'] === $letters) {
+                return $preset;
+            }
+        }
+        return ['letters' => $letters, 'sample_words' => []];
     }
 }
