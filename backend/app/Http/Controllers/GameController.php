@@ -13,19 +13,10 @@ class GameController extends Controller
     private const SWAP_COST = 200;
     private const ROUND_SECONDS = 100;
 
-    private array $presets = [
-        [
-            'letters' => 'СТЕКЛО',
-            'sample_words' => ['СТОЛ', 'ЛЕС', 'СЕТ', 'ЛОТ', 'КОЛ', 'ТЕСЛО'],
-        ],
-        [
-            'letters' => 'РАДИУС',
-            'sample_words' => ['РАД', 'ДАР', 'СУД', 'РИС', 'ДУРА', 'ДАРЫ'],
-        ],
-        [
-            'letters' => 'ПАРТОК',
-            'sample_words' => ['ПАР', 'РОТ', 'ТОР', 'ПОТ', 'КОРТ', 'ПОРТ'],
-        ],
+    private array $vowels = ['А','О','И','Е','Ё','Э','Ы','У','Я','Ю'];
+    private array $consonants = [
+        'Б','В','Г','Д','Ж','З','Й','К','Л','М','Н','П','Р','С','Т','Ф','Х','Ц','Ч','Ш','Щ',
+        'Ь','Ъ',
     ];
 
     /**
@@ -50,8 +41,7 @@ class GameController extends Controller
         $user = $request->user();
         $this->resetDailyFreeSwaps($user);
 
-        $preset = $this->preset();
-        $letters = $preset['letters'];
+        $letters = $this->generateLetters();
 
         $session = GameSession::create([
             'user_id' => $user->id,
@@ -64,7 +54,7 @@ class GameController extends Controller
             'free_swaps_left' => $user->free_swaps_left,
             'gems' => $user->gems,
             'round_seconds' => self::ROUND_SECONDS,
-            'hint_words' => $preset['sample_words'],
+            'hint_words' => [],
         ]);
     }
 
@@ -96,8 +86,14 @@ class GameController extends Controller
         $user->free_swaps_left -= 1;
         $user->save();
 
-        $preset = $this->preset();
-        $session->letters = $preset['letters'];
+        $newLetters = $this->generateLetters();
+        // стараемся избежать той же раздачи
+        $tries = 0;
+        while ($newLetters === $session->letters && $tries < 5) {
+            $newLetters = $this->generateLetters();
+            $tries++;
+        }
+        $session->letters = $newLetters;
         $session->swaps_used += 1;
         $session->save();
 
@@ -105,7 +101,7 @@ class GameController extends Controller
             'letters' => $this->lettersToArray($session->letters),
             'free_swaps_left' => $user->free_swaps_left,
             'gems' => $user->gems,
-            'hint_words' => $preset['sample_words'],
+            'hint_words' => [],
         ]);
     }
 
@@ -266,12 +262,24 @@ class GameController extends Controller
         if ($this->validator->exists($word)) {
             return true;
         }
-        // слова из пресетов считаем валидными
-        foreach ($this->presets as $preset) {
-            if (in_array($word, $preset['sample_words'], true)) {
-                return true;
-            }
-        }
         return in_array($word, $this->dictionary, true);
+    }
+
+    private function generateLetters(int $length = 6): string
+    {
+        // гарантируем минимум 2 гласные
+        $letters = [];
+        shuffle($this->vowels);
+        shuffle($this->consonants);
+        $letters[] = $this->vowels[array_rand($this->vowels)];
+        $letters[] = $this->vowels[array_rand($this->vowels)];
+
+        $pool = array_merge($this->vowels, $this->consonants, $this->consonants); // чуть больше согласных
+        for ($i = 2; $i < $length; $i++) {
+            $letters[] = $pool[array_rand($pool)];
+        }
+
+        shuffle($letters);
+        return implode('', $letters);
     }
 }
