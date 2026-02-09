@@ -355,6 +355,17 @@ function App() {
     }
   };
 
+  const clickLetter = (letterId: string) => {
+    setLetters((prev) => {
+      const idx = prev.findIndex((l) => l.id === letterId && l.lane === 'rack');
+      if (idx === -1) return prev;
+      const moved: LetterTile = { ...prev[idx], lane: 'word' };
+      const next = [...prev];
+      next[idx] = moved;
+      return next;
+    });
+  };
+
   const timePercent = useMemo(() => Math.max(0, Math.min(100, (timer / 100) * 100)), [timer]);
 
   const rackLetters = letters.filter((l) => l.lane === 'rack');
@@ -505,24 +516,26 @@ function App() {
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                 <div className="zones">
                   <DroppableZone id="rack" title="Буквы">
-                    <SortableContext items={rackLetters.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
-                      <div className="letters-row">
-                        {rackLetters.map((letter) => (
-                          <SortableLetter key={letter.id} letter={letter} />
-                        ))}
+                <SortableContext items={rackLetters.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
+                  <div className="letters-row">
+                    {rackLetters.map((letter) => (
+                      <div key={letter.id} onClick={() => clickLetter(letter.id)}>
+                        <SortableLetter letter={letter} />
                       </div>
-                    </SortableContext>
-                  </DroppableZone>
+                    ))}
+                  </div>
+                </SortableContext>
+              </DroppableZone>
 
-                  <DroppableZone id="word" title="Перетащите сюда слово" highlight>
-                    <SortableContext items={wordLetters.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
-                      <div className="letters-row">
-                        {wordLetters.map((letter) => (
-                          <SortableLetter key={letter.id} letter={letter} />
-                        ))}
-                      </div>
-                    </SortableContext>
-                  </DroppableZone>
+              <DroppableZone id="word" title="Перетащите сюда слово" highlight>
+                <SortableContext items={wordLetters.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
+                  <div className="letters-row">
+                    {wordLetters.map((letter) => (
+                      <SortableLetter key={letter.id} letter={letter} />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DroppableZone>
                 </div>
               </DndContext>
 
