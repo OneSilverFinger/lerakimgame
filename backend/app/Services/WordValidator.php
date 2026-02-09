@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 class WordValidator
@@ -33,6 +35,37 @@ class WordValidator
 
     public function exists(string $word): bool
     {
-        return isset($this->words[mb_strtoupper($word)]);
+        $upper = mb_strtoupper($word);
+
+        if (isset($this->words[$upper])) {
+            return true;
+        }
+
+        // Кешируем результат внешней проверки (положительный/отрицательный) на 7 дней
+        return Cache::remember("dict:ru:{$upper}", now()->addDays(7), function () use ($upper) {
+            return $this->checkExternalDictionary($upper);
+        });
+    }
+
+    /**
+     * Запрос к бесплатному API dictionaryapi.dev (данные из Wiktionary).
+     * Возвращает true, если слово найдено, иначе false.
+     */
+    private function checkExternalDictionary(string $upper): bool
+    {
+        try {
+            $response = Http::timeout(5)
+                ->acceptJson()
+                ->get("https://api.dictionaryapi.dev/api/v2/entries/ru/{$upper}");
+
+            if ($response->successful()) {
+                $json = $response->json();
+                return is_array($json) && count($json) > 0;
+            }
+        } catch (\Throwable $e) {
+            // Игнорируем сетевые ошибки, полагаемся на локальный словарь
+        }
+
+        return false;
     }
 }
