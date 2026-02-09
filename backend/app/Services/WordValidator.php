@@ -19,7 +19,12 @@ class WordValidator
         $lines = preg_split('/\r\n|\r|\n/', $content);
         $this->words = [];
         foreach ($lines as $line) {
-            $w = mb_strtoupper(trim($line));
+            if (str_contains($line, ' ')) {
+                [$w] = explode(' ', $line, 2); // частотный список вида "слово 123"
+            } else {
+                $w = $line;
+            }
+            $w = mb_strtoupper(trim($w));
             if ($w !== '') {
                 $this->words[$w] = true;
             }
