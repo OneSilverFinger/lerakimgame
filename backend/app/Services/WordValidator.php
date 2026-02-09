@@ -53,6 +53,7 @@ class WordValidator
      */
     private function checkExternalDictionary(string $upper): bool
     {
+        // 1) dictionaryapi.dev
         try {
             $slug = rawurlencode(mb_strtolower($upper)); // API ожидает нижний регистр
 
@@ -63,10 +64,36 @@ class WordValidator
 
             if ($response->successful()) {
                 $json = $response->json();
-                return is_array($json) && count($json) > 0;
+                if (is_array($json) && count($json) > 0) {
+                    return true;
+                }
             }
-        } catch (\Throwable $e) {
-            // Игнорируем сетевые ошибки, полагаемся на локальный словарь
+        } catch (\Throwable) {
+            // Игнорируем и пробуем следующий источник
+        }
+
+        // 2) ru.wiktionary.org API (MediaWiki). Если страницы нет — вернёт "missing".
+        try {
+            $response = Http::timeout(5)
+                ->acceptJson()
+                ->withHeaders(['User-Agent' => 'WordRush/1.0 (+https://lerakimgame.ru)'])
+                ->get('https://ru.wiktionary.org/w/api.php', [
+                    'action' => 'query',
+                    'titles' => mb_strtolower($upper),
+                    'format' => 'json',
+                ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $pages = $data['query']['pages'] ?? [];
+                foreach ($pages as $page) {
+                    if (!isset($page['missing'])) {
+                        return true; // страница существует
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // Игнорируем сетевые ошибки
         }
 
         return false;
